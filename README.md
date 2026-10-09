@@ -29,7 +29,7 @@ No bot process runs. The app is a small web server: the user authorizes it via D
    npm run register
    ```
 5. **Run:** `npm run dev` (or `npm start`).
-6. **Add the app to your server:** open the OAuth2 URL generator with the `applications.commands` scope. Then go to **Server Settings → Roles → (role) → Links → Add requirement**, pick this app, and set **Merged PRs ≥ 1**.
+6. **Add the app to your server:** open the OAuth2 URL generator with the `applications.commands` scope. Then go to **Server Settings → Roles → (role) → Links → Add requirement**, pick this app, and set **Merged PRs ≥ 1**. It's also a good idea to require GitHub connection for this step- the check will always fail without it, so this allows preventing unneccesary requests to the webserver and to the GH API, as well as providing more clarity for the user.
 
 Discord opens the Linked Roles Verification URL in the user's browser. For testing on another device, or for real use, expose the server over HTTPS (e.g. `cloudflared tunnel --url http://localhost:3000`). Then update the redirect URI in both the Developer Portal and `.env`.
 
