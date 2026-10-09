@@ -4,7 +4,7 @@ async function githubFetch<T>(config: Config, path: string): Promise<T> {
   const res = await fetch(`https://api.github.com${path}`, {
     headers: {
       Accept: "application/vnd.github+json",
-      Authorization: `Bearer ${config.github.token}`,
+      ...(config.github.token && { Authorization: `Bearer ${config.github.token}` }),
       "X-GitHub-Api-Version": "2022-11-28",
       "User-Agent": "anyps5-discord-verification",
     },

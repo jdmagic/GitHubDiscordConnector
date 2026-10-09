@@ -1,6 +1,3 @@
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
-
 export interface Config {
   port: number;
   discord: {
@@ -12,6 +9,7 @@ export interface Config {
     platformName: string;
   };
   github: {
+    /** Optional; only raises rate limits. Public repos work without one. */
     token: string;
     /** "owner/name" pairs; merged PRs are counted across all of them. */
     repos: string[];
@@ -19,42 +17,50 @@ export interface Config {
   cookieSecret: string;
 }
 
-/** Replaces every "${VAR}" in string values with process.env.VAR, collecting any that are unset. */
-function interpolate(value: unknown, missing: Set<string>): unknown {
-  if (typeof value === "string") {
-    return value.replace(/\$\{(\w+)\}/g, (_, name: string) => {
-      const env = process.env[name];
-      if (env === undefined || env === "") missing.add(name);
-      return env ?? "";
-    });
-  }
-  if (Array.isArray(value)) return value.map((v) => interpolate(v, missing));
-  if (value && typeof value === "object") {
-    return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, interpolate(v, missing)]));
-  }
-  return value;
-}
-
-export function loadConfig(path = process.env.CONFIG_PATH ?? "config.json"): Config {
+/** Reads settings from the environment, loading .env first if present. See .env.example. */
+export function loadConfig(): Config {
   try {
     process.loadEnvFile(".env");
   } catch {
     // No .env file; rely on the real environment (e.g. in production).
   }
 
-  const raw = JSON.parse(readFileSync(resolve(path), "utf8"));
-  const missing = new Set<string>();
-  const config = interpolate(raw, missing) as Config;
+  const missing: string[] = [];
+  const required = (name: string) => {
+    const value = process.env[name];
+    if (!value) missing.push(name);
+    return value ?? "";
+  };
+  const optional = (name: string, fallback: string) => process.env[name] || fallback;
 
-  if (missing.size > 0) {
-    throw new Error(`Missing environment variables referenced by ${path}: ${[...missing].join(", ")}`);
+  const config: Config = {
+    port: Number(optional("PORT", "3000")),
+    discord: {
+      clientId: required("DISCORD_CLIENT_ID"),
+      clientSecret: required("DISCORD_CLIENT_SECRET"),
+      botToken: required("DISCORD_BOT_TOKEN"),
+      redirectUri: required("DISCORD_REDIRECT_URI"),
+      platformName: optional("DISCORD_PLATFORM_NAME", "GitHub"),
+    },
+    github: {
+      token: optional("GITHUB_TOKEN", ""),
+      repos: required("GITHUB_REPOS")
+        .split(",")
+        .map((r) => r.trim())
+        .filter(Boolean),
+    },
+    cookieSecret: required("COOKIE_SECRET"),
+  };
+
+  if (missing.length > 0) {
+    throw new Error(`Missing required environment variables: ${missing.join(", ")} (see .env.example)`);
   }
-  if (!Array.isArray(config.github?.repos) || config.github.repos.length === 0) {
-    throw new Error(`${path}: github.repos must list at least one "owner/name" repo`);
+  if (!Number.isInteger(config.port) || config.port < 1 || config.port > 65535) {
+    throw new Error("PORT must be an integer between 1 and 65535");
   }
   for (const repo of config.github.repos) {
-    if (!/^[\w.-]+\/[\w.-]+$/.test(repo) || repo === "OWNER/REPO") {
-      throw new Error(`${path}: "${repo}" is not a valid "owner/name" repo`);
+    if (!/^[\w.-]+\/[\w.-]+$/.test(repo)) {
+      throw new Error(`GITHUB_REPOS: "${repo}" is not a valid "owner/name" repo`);
     }
   }
   return config;

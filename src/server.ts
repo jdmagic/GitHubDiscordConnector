@@ -3,6 +3,7 @@ import { serve } from "@hono/node-server";
 import { Hono } from "hono";
 import { deleteCookie, getSignedCookie, setSignedCookie } from "hono/cookie";
 import { html } from "hono/html";
+import { logger } from "hono/logger";
 import { loadConfig } from "./config.js";
 import { authorizeUrl, exchangeCode, getConnections, pushRoleConnection } from "./discord.js";
 import { countMergedPrs, loginForId } from "./github.js";
@@ -29,6 +30,7 @@ const page = (title: string, body: ReturnType<typeof html>) => html`<!doctype ht
   </html>`;
 
 const app = new Hono();
+app.use(logger());
 
 app.get("/", (c) =>
   c.html(page("GitHub contributor verification", html`<p><a href="/linked-role">Link your Discord account</a></p>`)),
